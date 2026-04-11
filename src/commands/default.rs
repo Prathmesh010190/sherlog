@@ -5,7 +5,7 @@ use std::fs;
 use crate::ai::AiEngine;
 use crate::config::Config;
 use crate::context::ProjectContext;
-use crate::output;
+use crate::output::{self, OutputMode};
 use crate::storage::Storage;
 
 const LAST_ERROR_PATH: &str = "/tmp/sherlog_last_error.json";
@@ -19,7 +19,7 @@ struct CapturedError {
     timestamp: String,
 }
 
-pub async fn run(json_output: bool) -> Result<()> {
+pub async fn run(mode: OutputMode) -> Result<()> {
     let path = std::path::Path::new(LAST_ERROR_PATH);
     if !path.exists() {
         output::print_error(
@@ -35,7 +35,7 @@ pub async fn run(json_output: bool) -> Result<()> {
     let config = Config::load()?;
     let context = ProjectContext::detect();
 
-    if !json_output {
+    if mode == OutputMode::Terminal {
         output::print_context_info(&context.project_types);
         output::print_info(&format!(
             "Analyzing failed command: {} (exit code {})",
@@ -73,7 +73,7 @@ pub async fn run(json_output: bool) -> Result<()> {
         );
     }
 
-    output::print_analysis(&response, json_output);
+    output::print_analysis(&response, mode);
 
     // Clean up the error file after successful analysis
     let _ = fs::remove_file(path);

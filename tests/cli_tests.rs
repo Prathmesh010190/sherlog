@@ -110,7 +110,6 @@ fn test_config_set_invalid_key() {
 
 #[test]
 fn test_history_empty() {
-    // This will work with an empty/new database
     sherlog().args(["history"]).assert().success();
 }
 
@@ -171,4 +170,97 @@ fn test_json_flag() {
         .assert()
         .success()
         .stdout(predicate::str::contains("model"));
+}
+
+// --- New command tests ---
+
+#[test]
+fn test_ci_flag() {
+    sherlog()
+        .args(["--ci", "config", "show"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("model"));
+}
+
+#[test]
+fn test_ci_flag_with_history() {
+    sherlog().args(["--ci", "history"]).assert().success();
+}
+
+#[test]
+fn test_postmortem_no_errors() {
+    sherlog()
+        .args(["postmortem", "--since", "1m ago"])
+        .assert()
+        .success()
+        .stdout(
+            predicate::str::contains("No errors found")
+                .or(predicate::str::contains("Nothing to report")),
+        );
+}
+
+#[test]
+fn test_postmortem_json() {
+    sherlog()
+        .args(["--json", "postmortem", "--since", "1m ago"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("No errors found"));
+}
+
+#[test]
+fn test_postmortem_invalid_since() {
+    sherlog()
+        .args(["postmortem", "--since", "potato"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Invalid time format"));
+}
+
+#[test]
+fn test_patterns_no_errors() {
+    sherlog()
+        .args(["patterns", "--last", "1m"])
+        .assert()
+        .success()
+        .stdout(
+            predicate::str::contains("No errors found")
+                .or(predicate::str::contains("Nothing to analyze")),
+        );
+}
+
+#[test]
+fn test_patterns_json() {
+    sherlog()
+        .args(["--json", "patterns", "--last", "1m"])
+        .assert()
+        .success();
+}
+
+#[test]
+fn test_patterns_invalid_time() {
+    sherlog()
+        .args(["patterns", "--last", "banana"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Invalid time format"));
+}
+
+#[test]
+fn test_watch_missing_file() {
+    sherlog()
+        .args(["watch", "/nonexistent/file.log"])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("File not found"));
+}
+
+#[test]
+fn test_help_shows_new_commands() {
+    sherlog().arg("--help").assert().success().stdout(
+        predicate::str::contains("postmortem")
+            .and(predicate::str::contains("patterns"))
+            .and(predicate::str::contains("watch")),
+    );
 }

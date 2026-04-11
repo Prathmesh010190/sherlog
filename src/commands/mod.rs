@@ -4,4 +4,7 @@ pub mod default;
 pub mod explain;
 pub mod history;
 pub mod init;
+pub mod patterns;
 pub mod pipe;
+pub mod postmortem;
+pub mod watch;

@@ -5,14 +5,14 @@ use std::path::Path;
 use crate::ai::AiEngine;
 use crate::config::Config;
 use crate::context::ProjectContext;
-use crate::output;
+use crate::output::{self, OutputMode};
 use crate::parsers;
 use crate::storage::Storage;
 
 const MAX_FILE_SIZE: u64 = 50 * 1024 * 1024; // 50MB
 const CHUNK_SIZE: usize = 100_000; // ~100KB per chunk
 
-pub async fn run(file: &str, max_lines: Option<usize>, json_output: bool) -> Result<()> {
+pub async fn run(file: &str, max_lines: Option<usize>, mode: OutputMode) -> Result<()> {
     let path = Path::new(file);
     if !path.exists() {
         bail!("File not found: {}", file);
@@ -37,7 +37,7 @@ pub async fn run(file: &str, max_lines: Option<usize>, json_output: bool) -> Res
 
     let truncated = if lines.len() > line_limit {
         let selected: Vec<&str> = lines[lines.len() - line_limit..].to_vec();
-        if !json_output {
+        if mode == OutputMode::Terminal {
             output::print_info(&format!(
                 "File has {} lines. Analyzing the last {} lines.",
                 lines.len(),
@@ -52,13 +52,13 @@ pub async fn run(file: &str, max_lines: Option<usize>, json_output: bool) -> Res
     // Auto-detect format and parse
     let (format_name, parsed) = parsers::auto_parse(&truncated);
 
-    if !json_output {
+    if mode == OutputMode::Terminal {
         output::print_info(&format!("Detected format: {format_name}"));
     }
 
     let context = ProjectContext::detect();
 
-    if !json_output {
+    if mode == OutputMode::Terminal {
         output::print_context_info(&context.project_types);
     }
 
@@ -84,7 +84,7 @@ pub async fn run(file: &str, max_lines: Option<usize>, json_output: bool) -> Res
         );
     }
 
-    output::print_analysis(&response, json_output);
+    output::print_analysis(&response, mode);
     Ok(())
 }
 

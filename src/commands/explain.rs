@@ -3,10 +3,10 @@ use anyhow::Result;
 use crate::ai::AiEngine;
 use crate::config::Config;
 use crate::context::ProjectContext;
-use crate::output;
+use crate::output::{self, OutputMode};
 use crate::storage::Storage;
 
-pub async fn run(error_message: &[String], json_output: bool) -> Result<()> {
+pub async fn run(error_message: &[String], mode: OutputMode) -> Result<()> {
     let error_text = error_message.join(" ");
 
     if error_text.trim().is_empty() {
@@ -17,7 +17,7 @@ pub async fn run(error_message: &[String], json_output: bool) -> Result<()> {
     let config = Config::load()?;
     let context = ProjectContext::detect();
 
-    if !json_output {
+    if mode == OutputMode::Terminal {
         output::print_context_info(&context.project_types);
     }
 
@@ -36,6 +36,6 @@ pub async fn run(error_message: &[String], json_output: bool) -> Result<()> {
         );
     }
 
-    output::print_analysis(&response, json_output);
+    output::print_analysis(&response, mode);
     Ok(())
 }

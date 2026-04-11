@@ -4,11 +4,11 @@ use std::io::{self, IsTerminal, Read};
 use crate::ai::AiEngine;
 use crate::config::Config;
 use crate::context::ProjectContext;
-use crate::output;
+use crate::output::{self, OutputMode};
 use crate::parsers;
 use crate::storage::Storage;
 
-pub async fn run(json_output: bool) -> Result<()> {
+pub async fn run(mode: OutputMode) -> Result<()> {
     // Check if stdin is a terminal (no pipe)
     if io::stdin().is_terminal() {
         bail!("No input detected. Pipe data to sherlog:\n  kubectl logs pod | sherlog pipe\n  docker logs container 2>&1 | sherlog pipe");
@@ -31,7 +31,7 @@ pub async fn run(json_output: bool) -> Result<()> {
     let config = Config::load()?;
     let lines: Vec<&str> = input.lines().collect();
     let truncated = if lines.len() > config.max_log_lines {
-        if !json_output {
+        if mode == OutputMode::Terminal {
             output::print_info(&format!(
                 "Input has {} lines. Analyzing the last {} lines.",
                 lines.len(),
@@ -46,12 +46,12 @@ pub async fn run(json_output: bool) -> Result<()> {
     // Auto-detect format
     let (format_name, _parsed) = parsers::auto_parse(&truncated);
 
-    if !json_output {
+    if mode == OutputMode::Terminal {
         output::print_info(&format!("Detected format: {format_name}"));
     }
 
     let context = ProjectContext::detect();
-    if !json_output {
+    if mode == OutputMode::Terminal {
         output::print_context_info(&context.project_types);
     }
 
@@ -70,6 +70,6 @@ pub async fn run(json_output: bool) -> Result<()> {
         );
     }
 
-    output::print_analysis(&response, json_output);
+    output::print_analysis(&response, mode);
     Ok(())
 }

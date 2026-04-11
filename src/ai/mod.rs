@@ -285,6 +285,59 @@ impl AiEngine {
         eprintln!(); // newline after streaming
         parse_ai_response(&full_text)
     }
+
+    /// Send a prompt with a custom system prompt and return raw text.
+    pub async fn generate_text(&self, system_prompt: &str, user_prompt: &str) -> Result<String> {
+        let api_key = self
+            .config
+            .api_key()
+            .context("API key not configured. Set it with:\n  sherlog config set api_key <your-key>\n  or set the SHERLOG_API_KEY environment variable")?;
+
+        let request = ApiRequest {
+            model: self.config.model.clone(),
+            max_tokens: 8192,
+            system: system_prompt.to_string(),
+            messages: vec![Message {
+                role: "user".to_string(),
+                content: user_prompt.to_string(),
+            }],
+            stream: false,
+        };
+
+        let url = format!("{}/v1/messages", self.config.api_base_url);
+
+        let response = self
+            .client
+            .post(&url)
+            .header("x-api-key", &api_key)
+            .header("anthropic-version", "2023-06-01")
+            .header("content-type", "application/json")
+            .json(&request)
+            .send()
+            .await
+            .context("Failed to connect to Anthropic API")?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            match status.as_u16() {
+                401 => bail!("Authentication failed. Check your API key."),
+                429 => bail!("Rate limit exceeded. Please wait and try again.\n{body}"),
+                _ => bail!("API request failed ({status}): {body}"),
+            }
+        }
+
+        let api_response: ApiResponse = response
+            .json()
+            .await
+            .context("Failed to parse API response")?;
+
+        api_response
+            .content
+            .first()
+            .and_then(|b| b.text.clone())
+            .context("Empty response from API")
+    }
 }
 
 fn parse_ai_response(text: &str) -> Result<AiResponse> {

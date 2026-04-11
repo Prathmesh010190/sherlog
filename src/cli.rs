@@ -18,6 +18,10 @@ pub struct Cli {
     /// Disable colored output
     #[arg(long, global = true)]
     pub no_color: bool,
+
+    /// Output in CI/CD format (GitHub Actions annotations with ::error:: prefixes)
+    #[arg(long, global = true)]
+    pub ci: bool,
 }
 
 #[derive(Subcommand)]
@@ -60,6 +64,26 @@ pub enum Commands {
 
     /// Read from stdin for piped input
     Pipe,
+
+    /// Generate an incident postmortem report from recent errors
+    Postmortem {
+        /// Time window to analyze (e.g., "2h ago", "30m ago", "1d ago")
+        #[arg(long, default_value = "2h ago")]
+        since: String,
+    },
+
+    /// Analyze error history to identify recurring patterns and trends
+    Patterns {
+        /// Time window to analyze (e.g., "7d", "24h", "30d")
+        #[arg(long, default_value = "7d")]
+        last: String,
+    },
+
+    /// Watch a log file in real-time and auto-analyze errors
+    Watch {
+        /// Path to the log file to watch
+        path: String,
+    },
 }
 
 #[derive(Subcommand)]
