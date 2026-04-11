@@ -6,5 +6,7 @@ pub mod history;
 pub mod init;
 pub mod patterns;
 pub mod pipe;
+pub mod plugin;
 pub mod postmortem;
+pub mod trace;
 pub mod watch;

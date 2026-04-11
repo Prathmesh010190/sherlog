@@ -7,6 +7,7 @@ const DEFAULT_MODEL: &str = "claude-sonnet-4-20250514";
 const DEFAULT_MAX_LOG_LINES: usize = 200;
 const DEFAULT_THEME: &str = "dark";
 const DEFAULT_API_BASE_URL: &str = "https://api.anthropic.com";
+const DEFAULT_PROVIDER: &str = "anthropic";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Config {
@@ -19,6 +20,10 @@ pub struct Config {
     pub theme: String,
     #[serde(default = "default_api_base_url")]
     pub api_base_url: String,
+    #[serde(default = "default_provider")]
+    pub provider: String,
+    #[serde(default)]
+    pub telemetry: bool,
 }
 
 fn default_model() -> String {
@@ -37,6 +42,10 @@ fn default_api_base_url() -> String {
     DEFAULT_API_BASE_URL.to_string()
 }
 
+fn default_provider() -> String {
+    DEFAULT_PROVIDER.to_string()
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -45,6 +54,8 @@ impl Default for Config {
             max_log_lines: default_max_log_lines(),
             theme: default_theme(),
             api_base_url: default_api_base_url(),
+            provider: default_provider(),
+            telemetry: false,
         }
     }
 }
@@ -101,8 +112,30 @@ impl Config {
             }
             "theme" => self.theme = value.to_string(),
             "api_base_url" => self.api_base_url = value.to_string(),
+            "provider" => match value {
+                "anthropic" | "ollama" => {
+                    self.provider = value.to_string();
+                    // Auto-switch api_base_url when changing providers
+                    if value == "ollama" && self.api_base_url == DEFAULT_API_BASE_URL {
+                        self.api_base_url = "http://localhost:11434".to_string();
+                    } else if value == "anthropic"
+                        && self.api_base_url == "http://localhost:11434"
+                    {
+                        self.api_base_url = DEFAULT_API_BASE_URL.to_string();
+                    }
+                }
+                _ => anyhow::bail!(
+                    "Unknown provider: '{}'. Valid providers: anthropic, ollama",
+                    value
+                ),
+            },
+            "telemetry" => {
+                self.telemetry = value
+                    .parse()
+                    .context("telemetry must be 'true' or 'false'")?;
+            }
             _ => anyhow::bail!(
-                "Unknown config key: '{}'. Valid keys: api_key, model, max_log_lines, theme, api_base_url",
+                "Unknown config key: '{}'. Valid keys: api_key, model, max_log_lines, theme, api_base_url, provider, telemetry",
                 key
             ),
         }

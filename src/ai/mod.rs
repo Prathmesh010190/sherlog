@@ -58,6 +58,8 @@ pub struct Fix {
     pub confidence: u8,
 }
 
+// --- Anthropic API types ---
+
 #[derive(Serialize)]
 struct ApiRequest {
     model: String,
@@ -113,6 +115,30 @@ struct Delta {
     text: Option<String>,
 }
 
+// --- Ollama API types ---
+
+#[derive(Serialize)]
+struct OllamaChatRequest {
+    model: String,
+    messages: Vec<OllamaMessage>,
+    stream: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    format: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct OllamaMessage {
+    role: String,
+    content: String,
+}
+
+#[derive(Deserialize)]
+struct OllamaChatResponse {
+    message: OllamaMessage,
+}
+
+// --- AI Engine ---
+
 pub struct AiEngine {
     config: Config,
     client: Client,
@@ -141,7 +167,19 @@ impl AiEngine {
         prompt
     }
 
+    /// Analyze an error. Routes to Anthropic or Ollama based on provider config.
     pub async fn analyze(
+        &self,
+        error_text: &str,
+        context: Option<&ProjectContext>,
+    ) -> Result<AiResponse> {
+        if self.config.provider == "ollama" {
+            return self.analyze_ollama(error_text, context).await;
+        }
+        self.analyze_anthropic(error_text, context).await
+    }
+
+    async fn analyze_anthropic(
         &self,
         error_text: &str,
         context: Option<&ProjectContext>,
@@ -202,6 +240,60 @@ impl AiEngine {
         parse_ai_response(text)
     }
 
+    async fn analyze_ollama(
+        &self,
+        error_text: &str,
+        context: Option<&ProjectContext>,
+    ) -> Result<AiResponse> {
+        let prompt = Self::build_prompt(error_text, context);
+
+        let request = OllamaChatRequest {
+            model: self.config.model.clone(),
+            messages: vec![
+                OllamaMessage {
+                    role: "system".to_string(),
+                    content: SYSTEM_PROMPT.to_string(),
+                },
+                OllamaMessage {
+                    role: "user".to_string(),
+                    content: prompt,
+                },
+            ],
+            stream: false,
+            format: Some("json".to_string()),
+        };
+
+        let url = format!("{}/api/chat", self.config.api_base_url);
+
+        let response = self
+            .client
+            .post(&url)
+            .header("content-type", "application/json")
+            .json(&request)
+            .send()
+            .await
+            .context("Failed to connect to Ollama. Is it running? Start with: ollama serve")?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            match status.as_u16() {
+                404 => bail!(
+                    "Model not found. Pull it with: ollama pull {}",
+                    self.config.model
+                ),
+                _ => bail!("Ollama request failed ({status}): {body}"),
+            }
+        }
+
+        let resp: OllamaChatResponse = response
+            .json()
+            .await
+            .context("Failed to parse Ollama response")?;
+
+        parse_ai_response(&resp.message.content)
+    }
+
     #[allow(dead_code)]
     pub async fn analyze_streaming(
         &self,
@@ -259,7 +351,6 @@ impl AiEngine {
             let chunk_str = String::from_utf8_lossy(&chunk);
             buffer.push_str(&chunk_str);
 
-            // Process complete SSE lines
             while let Some(pos) = buffer.find("\n\n") {
                 let event_block = buffer[..pos].to_string();
                 buffer = buffer[pos + 2..].to_string();
@@ -282,12 +373,25 @@ impl AiEngine {
             }
         }
 
-        eprintln!(); // newline after streaming
+        eprintln!();
         parse_ai_response(&full_text)
     }
 
     /// Send a prompt with a custom system prompt and return raw text.
+    /// Routes to Anthropic or Ollama based on provider config.
     pub async fn generate_text(&self, system_prompt: &str, user_prompt: &str) -> Result<String> {
+        if self.config.provider == "ollama" {
+            return self.generate_text_ollama(system_prompt, user_prompt).await;
+        }
+        self.generate_text_anthropic(system_prompt, user_prompt)
+            .await
+    }
+
+    async fn generate_text_anthropic(
+        &self,
+        system_prompt: &str,
+        user_prompt: &str,
+    ) -> Result<String> {
         let api_key = self
             .config
             .api_key()
@@ -338,10 +442,55 @@ impl AiEngine {
             .and_then(|b| b.text.clone())
             .context("Empty response from API")
     }
+
+    async fn generate_text_ollama(
+        &self,
+        system_prompt: &str,
+        user_prompt: &str,
+    ) -> Result<String> {
+        let request = OllamaChatRequest {
+            model: self.config.model.clone(),
+            messages: vec![
+                OllamaMessage {
+                    role: "system".to_string(),
+                    content: system_prompt.to_string(),
+                },
+                OllamaMessage {
+                    role: "user".to_string(),
+                    content: user_prompt.to_string(),
+                },
+            ],
+            stream: false,
+            format: None,
+        };
+
+        let url = format!("{}/api/chat", self.config.api_base_url);
+
+        let response = self
+            .client
+            .post(&url)
+            .header("content-type", "application/json")
+            .json(&request)
+            .send()
+            .await
+            .context("Failed to connect to Ollama")?;
+
+        let status = response.status();
+        if !status.is_success() {
+            let body = response.text().await.unwrap_or_default();
+            bail!("Ollama request failed ({status}): {body}");
+        }
+
+        let resp: OllamaChatResponse = response
+            .json()
+            .await
+            .context("Failed to parse Ollama response")?;
+
+        Ok(resp.message.content)
+    }
 }
 
 fn parse_ai_response(text: &str) -> Result<AiResponse> {
-    // Try to extract JSON from the response (handle markdown fences)
     let json_str = if let Some(start) = text.find('{') {
         if let Some(end) = text.rfind('}') {
             &text[start..=end]

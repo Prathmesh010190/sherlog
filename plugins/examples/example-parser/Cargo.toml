@@ -1,0 +1,13 @@
+[package]
+name = "example-parser"
+version = "0.1.0"
+edition = "2021"
+description = "Example sherlog WASM plugin: CSV log parser"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+extism-pdk = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

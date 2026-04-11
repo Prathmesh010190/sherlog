@@ -27,6 +27,7 @@ Every developer spends hours debugging errors. You copy an error message, search
 | **Privacy** | Your API key, your data | Third-party SaaS | Fully local |
 | **Postmortem reports** | One command | Manual | Manual |
 
+
 Sherlog isn't a replacement for production monitoring — it's the missing tool for **development-time debugging** that slots in between "read the error" and "open a browser tab."
 
 ## Features

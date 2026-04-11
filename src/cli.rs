@@ -84,13 +84,33 @@ pub enum Commands {
         /// Path to the log file to watch
         path: String,
     },
+
+    /// Manage WASM plugins for custom log parsers and output formatters
+    Plugin {
+        #[command(subcommand)]
+        action: PluginAction,
+    },
+
+    /// Trace errors across multiple services and correlate by request/trace ID
+    Trace {
+        /// Comma-separated list of service names
+        #[arg(long)]
+        services: String,
+
+        /// Time window to look back (e.g., "1h ago", "30m ago")
+        #[arg(long, default_value = "1h ago")]
+        since: String,
+
+        /// Log files to read (one per service, in order). If omitted, tries docker/k8s.
+        files: Vec<String>,
+    },
 }
 
 #[derive(Subcommand)]
 pub enum ConfigAction {
     /// Set a configuration value
     Set {
-        /// Configuration key (api_key, model, max_log_lines, theme, api_base_url)
+        /// Configuration key (api_key, model, max_log_lines, theme, api_base_url, provider, telemetry)
         key: String,
         /// Value to set
         value: String,
@@ -98,4 +118,22 @@ pub enum ConfigAction {
 
     /// Show current configuration
     Show,
+}
+
+#[derive(Subcommand)]
+pub enum PluginAction {
+    /// Install a WASM plugin from a URL
+    Install {
+        /// URL to the .wasm plugin file
+        url: String,
+    },
+
+    /// List installed plugins
+    List,
+
+    /// Remove an installed plugin by name
+    Remove {
+        /// Plugin name to remove
+        name: String,
+    },
 }

@@ -5,7 +5,9 @@ mod config;
 mod context;
 mod output;
 mod parsers;
+mod plugins;
 mod storage;
+mod telemetry;
 
 use anyhow::Result;
 use clap::Parser;
@@ -29,6 +31,28 @@ async fn run() -> Result<()> {
 
     let mode = OutputMode::from_flags(cli.json, cli.ci);
 
+    // Record anonymous telemetry if opted in
+    if config::Config::load()
+        .map(|c| c.telemetry)
+        .unwrap_or(false)
+    {
+        let cmd = match &cli.command {
+            None => "default",
+            Some(Commands::Init { .. }) => "init",
+            Some(Commands::Analyze { .. }) => "analyze",
+            Some(Commands::Explain { .. }) => "explain",
+            Some(Commands::History { .. }) => "history",
+            Some(Commands::Config { .. }) => "config",
+            Some(Commands::Pipe) => "pipe",
+            Some(Commands::Postmortem { .. }) => "postmortem",
+            Some(Commands::Patterns { .. }) => "patterns",
+            Some(Commands::Watch { .. }) => "watch",
+            Some(Commands::Plugin { .. }) => "plugin",
+            Some(Commands::Trace { .. }) => "trace",
+        };
+        telemetry::Telemetry::new().record_command(cmd);
+    }
+
     match &cli.command {
         None => commands::default::run(mode).await,
         Some(Commands::Init { shell }) => commands::init::run(shell.clone()),
@@ -44,5 +68,11 @@ async fn run() -> Result<()> {
         Some(Commands::Postmortem { since }) => commands::postmortem::run(since, mode).await,
         Some(Commands::Patterns { last }) => commands::patterns::run(last, mode),
         Some(Commands::Watch { path }) => commands::watch::run(path, mode).await,
+        Some(Commands::Plugin { action }) => commands::plugin::run(action, mode).await,
+        Some(Commands::Trace {
+            services,
+            since,
+            files,
+        }) => commands::trace::run(services, since, files, mode).await,
     }
 }
