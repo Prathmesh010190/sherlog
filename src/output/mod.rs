@@ -1,4 +1,5 @@
 use crate::ai::AiResponse;
+use crate::plugins::{PluginCapability, PluginFormatter, PluginManager};
 use colored::Colorize;
 
 /// Output mode for formatting results.
@@ -25,6 +26,15 @@ impl OutputMode {
 }
 
 pub fn print_analysis(response: &AiResponse, mode: OutputMode) {
+    // Try plugin formatters for terminal mode
+    if mode == OutputMode::Terminal {
+        if let Some((name, formatted)) = try_plugin_formatter(response) {
+            print_info(&format!("Formatted by plugin: {name}"));
+            println!("{formatted}");
+            return;
+        }
+    }
+
     match mode {
         OutputMode::Json => {
             if let Ok(json) = serde_json::to_string_pretty(response) {
@@ -38,6 +48,34 @@ pub fn print_analysis(response: &AiResponse, mode: OutputMode) {
             print_terminal_analysis(response);
         }
     }
+}
+
+/// Try to format output using an installed plugin formatter.
+/// Returns `None` if no formatter plugin is installed or if formatting fails.
+fn try_plugin_formatter(response: &AiResponse) -> Option<(String, String)> {
+    let manager = PluginManager::new().ok()?;
+    let json_input = serde_json::to_string(response).ok()?;
+
+    if let Ok(entries) = std::fs::read_dir(manager.plugins_dir()) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) == Some("wasm") {
+                if let Ok(mut plugin) = crate::plugins::WasmPlugin::load(&path) {
+                    if plugin
+                        .manifest
+                        .capabilities
+                        .contains(&PluginCapability::Formatter)
+                    {
+                        let name = plugin.formatter_name();
+                        if let Ok(output) = plugin.format_output(&json_input) {
+                            return Some((name, output));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
 }
 
 fn print_ci_analysis(response: &AiResponse) {

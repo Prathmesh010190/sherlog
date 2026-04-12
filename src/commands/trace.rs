@@ -97,8 +97,7 @@ pub async fn run(services: &str, since: &str, files: &[String], mode: OutputMode
             for trace in &error_traces {
                 println!("{}", "\u{2500}".repeat(60).dimmed());
                 println!(
-                    "{} Trace: {}",
-                    "\u{1f534}",
+                    "\u{1f534} Trace: {}",
                     trace.trace_id.yellow().bold()
                 );
                 if let Some(root) = &trace.root_cause_service {

@@ -8,6 +8,8 @@ pub mod terraform;
 
 use serde::{Deserialize, Serialize};
 
+use crate::plugins::{PluginManager, PluginParser};
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ParsedLog {
     pub timestamp: Option<String>,
@@ -29,7 +31,21 @@ pub trait LogParser: Send + Sync {
 }
 
 /// Detect the best parser for the given input and parse it.
+/// Tries WASM plugin parsers first, then falls back to built-in parsers.
 pub fn auto_parse(input: &str) -> (String, Vec<ParsedLog>) {
+    // Try plugin parsers first
+    if let Ok(manager) = PluginManager::new() {
+        for mut plugin in manager.load_parser_plugins() {
+            if plugin.can_parse(input) {
+                let entries = plugin.parse(input);
+                if !entries.is_empty() {
+                    let name = plugin.parser_name();
+                    return (name, entries);
+                }
+            }
+        }
+    }
+
     let parsers: Vec<Box<dyn LogParser>> = vec![
         Box::new(json_logs::JsonLogParser),
         Box::new(kubernetes::KubernetesParser),
