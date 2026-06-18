@@ -73,7 +73,11 @@ pub fn run(action: &ConfigAction, mode: OutputMode) -> Result<()> {
                     println!(
                         "  {} {}",
                         "telemetry:".white().bold(),
-                        if config.telemetry { "enabled" } else { "disabled" }
+                        if config.telemetry {
+                            "enabled"
+                        } else {
+                            "disabled"
+                        }
                     );
 
                     println!();

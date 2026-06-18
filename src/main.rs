@@ -32,10 +32,7 @@ async fn run() -> Result<()> {
     let mode = OutputMode::from_flags(cli.json, cli.ci);
 
     // Record anonymous telemetry if opted in
-    if config::Config::load()
-        .map(|c| c.telemetry)
-        .unwrap_or(false)
-    {
+    if config::Config::load().map(|c| c.telemetry).unwrap_or(false) {
         let cmd = match &cli.command {
             None => "default",
             Some(Commands::Init { .. }) => "init",

@@ -96,10 +96,7 @@ pub async fn run(services: &str, since: &str, files: &[String], mode: OutputMode
         OutputMode::Terminal => {
             for trace in &error_traces {
                 println!("{}", "\u{2500}".repeat(60).dimmed());
-                println!(
-                    "\u{1f534} Trace: {}",
-                    trace.trace_id.yellow().bold()
-                );
+                println!("\u{1f534} Trace: {}", trace.trace_id.yellow().bold());
                 if let Some(root) = &trace.root_cause_service {
                     println!(
                         "  {} {}",
@@ -148,11 +145,7 @@ pub async fn run(services: &str, since: &str, files: &[String], mode: OutputMode
 }
 
 /// Read logs from files, docker containers, or k8s pods for each service.
-fn collect_logs(
-    services: &[&str],
-    files: &[String],
-    since: &str,
-) -> Result<Vec<ServiceEvent>> {
+fn collect_logs(services: &[&str], files: &[String], since: &str) -> Result<Vec<ServiceEvent>> {
     let mut all_events = Vec::new();
     let since_duration = normalize_since(since);
     let trace_patterns = build_trace_regex();
@@ -197,7 +190,10 @@ fn correlate_events(events: &[ServiceEvent]) -> Vec<CorrelatedTrace> {
 
     for event in events {
         if let Some(tid) = &event.trace_id {
-            trace_map.entry(tid.clone()).or_default().push(event.clone());
+            trace_map
+                .entry(tid.clone())
+                .or_default()
+                .push(event.clone());
         } else if matches!(event.severity.as_deref(), Some("error") | Some("fatal")) {
             unmatched_errors.push(event.clone());
         }

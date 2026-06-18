@@ -443,11 +443,7 @@ impl AiEngine {
             .context("Empty response from API")
     }
 
-    async fn generate_text_ollama(
-        &self,
-        system_prompt: &str,
-        user_prompt: &str,
-    ) -> Result<String> {
+    async fn generate_text_ollama(&self, system_prompt: &str, user_prompt: &str) -> Result<String> {
         let request = OllamaChatRequest {
             model: self.config.model.clone(),
             messages: vec![

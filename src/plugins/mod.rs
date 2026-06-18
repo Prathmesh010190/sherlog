@@ -223,7 +223,11 @@ impl PluginManager {
                 let path = entry.path();
                 if path.extension().and_then(|s| s.to_str()) == Some("wasm") {
                     if let Ok(plugin) = WasmPlugin::load(&path) {
-                        if plugin.manifest.capabilities.contains(&PluginCapability::Parser) {
+                        if plugin
+                            .manifest
+                            .capabilities
+                            .contains(&PluginCapability::Parser)
+                        {
                             parsers.push(plugin);
                         }
                     }
