@@ -235,7 +235,7 @@ fn correlate_events(events: &[ServiceEvent]) -> Vec<CorrelatedTrace> {
         });
     }
 
-    traces.sort_by(|a, b| b.has_errors.cmp(&a.has_errors));
+    traces.sort_by_key(|a| std::cmp::Reverse(a.has_errors));
     traces
 }
 
