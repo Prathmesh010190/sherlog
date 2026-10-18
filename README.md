@@ -1,4 +1,6 @@
 <p align="center">
+
+[![CI](https://github.com/Prathmesh010190/sherlog/actions/workflows/ci.yml/badge.svg)](https://github.com/Prathmesh010190/sherlog/actions/workflows/ci.yml)
   <h1 align="center">sherlog</h1>
   <p align="center">
     <strong>AI-powered error debugging assistant for the terminal</strong>
